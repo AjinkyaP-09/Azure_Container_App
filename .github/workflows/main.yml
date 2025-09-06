@@ -1,5 +1,3 @@
-# .github/workflows/main.yml
-
 name: Build and Deploy to Azure Container Apps
 
 on:
@@ -7,42 +5,45 @@ on:
     branches:
       - main
 
+# Environment variables available to all jobs and steps
 env:
   RESOURCE_GROUP: "rg-cicd-project"
-  ACR_NAME: "containerapp060925" 
-  ACA_NAME: "aca-cicd-project-app"
-  IMAGE_NAME: "python-hello-world"
+  ACR_NAME: "containerapp060925"      # Your Azure Container Registry name
+  ACA_NAME: "aca-cicd-project-app"    # Your Azure Container App name
+  IMAGE_NAME: "python-hello-world"    # The name for your container image
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
-
+    
     steps:
+      # 1. Check out your repository code
       - name: Checkout Code
         uses: actions/checkout@v3
 
+      # 2. Log in to Azure using the Service Principal secret
       - name: Log in to Azure
         uses: azure/login@v1
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
+      # 3. Log in to your Azure Container Registry (ACR) using Admin credentials
       - name: Log in to ACR
-        run: az acr login --name ${{ env.ACR_NAME }}
+        run: az acr login --name ${{ env.ACR_NAME }} --username ${{ secrets.ACR_USERNAME }} --password ${{ secrets.ACR_PASSWORD }}
 
+      # 4. Build and push the Docker image to ACR
       - name: Build and Push Docker Image
         run: |
           docker build . -t ${{ env.ACR_NAME }}.azurecr.io/${{ env.IMAGE_NAME }}:${{ github.sha }}
           docker push ${{ env.ACR_NAME }}.azurecr.io/${{ env.IMAGE_NAME }}:${{ github.sha }}
 
-      
+      # 5. Update the Azure Container App to use the new image
       - name: Deploy to Azure Container Apps
-        uses: azure/container-apps-deploy-action@v1
-        with:
-          resourceGroup: ${{ env.RESOURCE_GROUP }}
-          containerAppName: ${{ env.ACA_NAME }}
-          imageToDeploy: ${{ env.ACR_NAME }}.azurecr.io/${{ env.IMAGE_NAME }}:${{ github.sha }}
-          registryUrl: ${{ env.ACR_NAME }}.azurecr.io
-          registryUsername: ${{ secrets.ACR_USERNAME }}
-          registryPassword: ${{ secrets.ACR_PASSWORD }}
-          targetPort: 8000
-          ingress: 'external'
+        run: |
+          az containerapp update \
+            --name ${{ env.ACA_NAME }} \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --image ${{ env.ACR_NAME }}.azurecr.io/${{ env.IMAGE_NAME }}:${{ github.sha }} \
+            --registry-server ${{ env.ACR_NAME }}.azurecr.io \
+            --registry-username ${{ secrets.ACR_USERNAME }} \
+            --registry-password ${{ secrets.ACR_PASSWORD }}
