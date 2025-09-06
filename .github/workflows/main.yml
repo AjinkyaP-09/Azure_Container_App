@@ -42,3 +42,14 @@ jobs:
           imageToDeploy: ${{ env.ACR_NAME }}.azurecr.io/${{ env.IMAGE_NAME }}:${{ github.sha }}
           targetPort: 8000
           ingress: 'external'
+# 5. Deploy the image to Azure Container Apps
+      - name: Deploy to Azure Container Apps
+        uses: azure/container-apps-deploy-action@v1
+        with:
+          resourceGroup: ${{ env.RESOURCE_GROUP }}
+          containerAppName: ${{ env.ACA_NAME }}
+          # 👇 ADD THIS LINE
+          registryUrl: ${{ env.ACR_NAME }}.azurecr.io
+          imageToDeploy: ${{ env.ACR_NAME }}.azurecr.io/${{ env.IMAGE_NAME }}:${{ github.sha }}
+          targetPort: 8000
+          ingress: 'external'
