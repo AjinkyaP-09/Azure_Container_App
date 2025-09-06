@@ -37,13 +37,20 @@ jobs:
           docker build . -t ${{ env.ACR_NAME }}.azurecr.io/${{ env.IMAGE_NAME }}:${{ github.sha }}
           docker push ${{ env.ACR_NAME }}.azurecr.io/${{ env.IMAGE_NAME }}:${{ github.sha }}
 
-      # 5. Update the Azure Container App to use the new image
-      - name: Deploy to Azure Container Apps
+      # 5. Set registry credentials on the Container App
+      - name: Set Registry Credentials on Container App
+        run: |
+          az containerapp registry set \
+            --name ${{ env.ACA_NAME }} \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --server ${{ env.ACR_NAME }}.azurecr.io \
+            --username ${{ secrets.ACR_USERNAME }} \
+            --password ${{ secrets.ACR_PASSWORD }}
+
+      # 6. Update the Azure Container App to use the new image
+      - name: Deploy New Image to Container App
         run: |
           az containerapp update \
             --name ${{ env.ACA_NAME }} \
             --resource-group ${{ env.RESOURCE_GROUP }} \
-            --image ${{ env.ACR_NAME }}.azurecr.io/${{ env.IMAGE_NAME }}:${{ github.sha }} \
-            --registry-server ${{ env.ACR_NAME }}.azurecr.io \
-            --registry-username ${{ secrets.ACR_USERNAME }} \
-            --registry-password ${{ secrets.ACR_PASSWORD }}
+            --image ${{ env.ACR_NAME }}.azurecr.io/${{ env.IMAGE_NAME }}:${{ github.sha }}
